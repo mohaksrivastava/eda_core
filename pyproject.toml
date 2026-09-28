@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "edacore"
+version = "0.1.0"
+description = "Deterministic EDA statistics library: assumption checks, hypothesis tests, effect sizes, multiplicity, power, and visualisation, every result verified against R."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [{ name = "edacore maintainers" }]
+dependencies = [
+  "pandas>=2.2",
+  "numpy>=1.26.0",
+  "scipy>=1.15",
+  "statsmodels>=0.14",
+  "scikit-posthocs",
+  "pydantic>=2",
+  "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+  "mypy",
+  "pandas-stubs",
+  # Test-only: test_correlation.py cross-checks the in-house mutual
+  # information estimator against sklearn's, to ~1e-12 on continuous
+  # data. edacore's own implementation has no sklearn dependency.
+  "scikit-learn",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/edacore"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+# Higher than requires-python: numpy's bundled stubs use PEP 695 `type`
+# statements that mypy can only parse when targeting 3.12+, the minimum
+# that supports it. The code itself still has to run on 3.11.
+python_version = "3.12"
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+# scipy/statsmodels/scikit-posthocs/sklearn ship no py.typed marker /
+# stubs (unlike pandas, covered by pandas-stubs above); every call into
+# them is effectively Any. Scoped to just these, not a blanket ignore.
+module = ["scipy.*", "statsmodels.*", "scikit_posthocs.*", "sklearn.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+  "slow: runs a coverage simulation (hundreds of trials); pass -m 'not slow' to skip locally",
+]
+filterwarnings = [
+  # edacore.contracts.TestResult is a pydantic model, not a pytest test
+  # class; its name just collides with pytest's collection pattern for
+  # the module it happens to be imported into.
+  "ignore:cannot collect test class 'TestResult':pytest.PytestCollectionWarning",
+]
